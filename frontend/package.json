@@ -1,0 +1,49 @@
+{
+  "name": "agrifinai-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@aws-sdk/s3-request-presigner": "^3.758.0",
+    "@google/generative-ai": "^0.24.1",
+    "@heroicons/react": "^2.2.0",
+    "@iconify/react": "^5.2.0",
+    "@mantine/core": "^7.17.1",
+    "@material-tailwind/react": "^2.1.9",
+    "@react-pdf-viewer/core": "^3.12.0",
+    "@react-pdf-viewer/default-layout": "^3.12.0",
+    "@types/node": "^20.10.3",
+    "@types/react": "^18.2.45",
+    "aws-sdk": "^2.1692.0",
+    "encoding": "^0.1.13",
+    "framer-motion": "^12.23.12",
+    "i18next": "^25.3.2",
+    "jspdf": "^3.0.2",
+    "marked": "^16.1.1",
+    "next": "^15.5.2",
+    "next-auth": "^4.24.13",
+    "nodemailer": "^7.0.10",
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^15.6.1",
+    "react-icons": "^5.3.0",
+    "react-slick": "^0.30.3",
+    "slick-carousel": "^1.8.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@typescript-eslint/eslint-plugin": "^8.47.0",
+    "@typescript-eslint/parser": "^8.47.0",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.1",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3"
+  }
+}

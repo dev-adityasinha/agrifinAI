@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@web/*": ["./*"],
+      "@packages/ui": ["../../packages/ui/src"],
+      "@packages/ui/*": ["../../packages/ui/src/*"],
+      "@packages/utils": ["../../packages/utils/src"],
+      "@packages/utils/*": ["../../packages/utils/src/*"]
+    }
+  }
+}
