@@ -14,7 +14,7 @@ export default function SoilHealthPage() {
   const handleAnalysisRequest = async (formData) => {
     setLoading(true);
     setError('');
-    
+
     try {
       // Call Gemini API for soil health analysis
       const response = await fetch('/api/soil-analysis', {
@@ -53,7 +53,7 @@ export default function SoilHealthPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4">{t('AI Crop & Soil Health Analysis')}</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">{t('Provide details about your crop and soil to get an AI-powered health assessment and recommendations.')}</p>
-          
+
           {/* Status Badge */}
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 text-green-800">
             <FiCheckCircle className="text-green-600" />
