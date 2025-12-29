@@ -1,5 +1,165 @@
+"use client";
+import { useState, useEffect } from 'react';
+
 const SoilHealthReport = ({ report }) => {
+  const [isHindi, setIsHindi] = useState(false);
+  const [translatedRecommendations, setTranslatedRecommendations] = useState([]);
+  const [translating, setTranslating] = useState(false);
+  
+  // Speech synthesis states
+  const [voices, setVoices] = useState([]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [spokenWords, setSpokenWords] = useState([]);
+
+  // Load available voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const synthVoices = window.speechSynthesis.getVoices();
+      setVoices(synthVoices);
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
+
+  const translateToHindi = async () => {
+    if (translatedRecommendations.length > 0) {
+      setIsHindi(true);
+      return;
+    }
+
+    setTranslating(true);
+    try {
+      const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      
+      const recommendationText = report.recommendations?.join('\n') || '';
+      
+      const prompt = `Translate the following agricultural recommendations into clear, simple Hindi. 
+Preserve the bullet point format. Keep each recommendation as a separate item.
+
+RECOMMENDATIONS:
+${recommendationText}`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      const result = await response.json();
+      const hindiText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      // Split translated text into recommendations
+      const hindiRecs = hindiText
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => line.replace(/^[-*•]\s*/, '').trim())
+        .filter(line => line.length > 0);
+      
+      setTranslatedRecommendations(hindiRecs);
+      setIsHindi(true);
+    } catch (err) {
+      console.error("Translation error:", err);
+      alert("Translation failed. Please try again.");
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const toggleLanguage = () => {
+    stopSpeaking(); // Stop current speech when switching languages
+    if (isHindi) {
+      setIsHindi(false);
+    } else {
+      if (translatedRecommendations.length === 0) {
+        translateToHindi();
+      } else {
+        setIsHindi(true);
+      }
+    }
+  };
+
+  const speakRecommendations = () => {
+    stopSpeaking();
+    
+    const textToSpeak = (displayRecommendations || []).join(' ');
+    if (!textToSpeak) return;
+
+    const words = textToSpeak.split(' ');
+    setSpokenWords(words);
+    setCurrentWordIndex(-1);
+    setIsSpeaking(true);
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    // Set language and voice
+    if (isHindi) {
+      utterance.lang = 'hi-IN';
+      const hindiVoice = voices.find(v => v.lang === 'hi-IN' || v.lang === 'hi') 
+        || voices.find(v => v.lang.startsWith('hi'));
+      if (hindiVoice) {
+        utterance.voice = hindiVoice;
+      }
+    } else {
+      utterance.lang = 'en-US';
+      const englishVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en')
+        || voices.find(v => v.lang.startsWith('en'));
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+    }
+
+    utterance.onboundary = (event) => {
+      if (event.name === 'word') {
+        const charIndex = event.charIndex;
+        let index = 0;
+        let charCount = 0;
+        for (let i = 0; i < words.length; i++) {
+          charCount += words[i].length + 1;
+          if (charCount > charIndex) {
+            index = i;
+            break;
+          }
+        }
+        setCurrentWordIndex(index);
+      }
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setCurrentWordIndex(-1);
+      setSpokenWords([]);
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech error:', event.error);
+      setIsSpeaking(false);
+      if (isHindi) {
+        alert('Hindi speech not available. Please install Hindi language pack.');
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setCurrentWordIndex(-1);
+    setSpokenWords([]);
+  };
+
   if (!report) return null;
+
+  const displayRecommendations = isHindi ? translatedRecommendations : report.recommendations;
 
   return (
     <div className="space-y-6">
@@ -86,9 +246,50 @@ const SoilHealthReport = ({ report }) => {
 
       {/* Recommendations */}
       <div>
-        <h3 className="text-lg font-bold text-gray-900 mb-3">📋 Recommendations</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">📋 Recommendations</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={toggleLanguage}
+              disabled={translating}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:bg-green-400 transition-all"
+            >
+              {translating ? "Translating..." : isHindi ? "View in English" : "हिंदी में देखें"}
+            </button>
+            <button
+              onClick={speakRecommendations}
+              disabled={isSpeaking}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:bg-blue-400 transition-all flex items-center gap-1"
+            >
+              🔊 Listen
+            </button>
+            <button
+              onClick={stopSpeaking}
+              disabled={!isSpeaking}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:bg-gray-400 transition-all flex items-center gap-1"
+            >
+              ✋ Stop
+            </button>
+          </div>
+        </div>
+
+        {spokenWords.length > 0 && (
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+            <p className="text-gray-700 text-sm">
+              {spokenWords.map((word, idx) => (
+                <span
+                  key={idx}
+                  className={idx === currentWordIndex ? "bg-yellow-300 font-bold px-1 rounded" : ""}
+                >
+                  {word}{' '}
+                </span>
+              ))}
+            </p>
+          </div>
+        )}
+
         <ul className="space-y-2">
-          {report.recommendations && report.recommendations.map((rec, idx) => (
+          {displayRecommendations && displayRecommendations.map((rec, idx) => (
             <li key={idx} className="flex gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
               <span className="text-green-600 font-bold flex-shrink-0">✓</span>
               <span className="text-gray-700 text-sm">{rec}</span>

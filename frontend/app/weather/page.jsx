@@ -149,27 +149,88 @@ ${weatherData.recommendations}
     setSpokenWords(words);
     setCurrentWordIndex(-1);
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1;
-    utterance.pitch = 1;
+    // Cancel any ongoing speech first
+    window.speechSynthesis.cancel();
 
-    // Select voice explicitly
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 0.9; // Slightly slower for better clarity
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
     if (isHindi) {
-      const hindiVoice = voices.find(v => v.lang.startsWith('hi'))
-        || voices.find(v => v.name.toLowerCase().includes('hindi')); // fallback
-      if (hindiVoice) {
-        utterance.voice = hindiVoice;
-      } else {
-        utterance.lang = 'hi-IN'; // fallback
-        console.warn('No Hindi voice found in browser. Falling back to hi-IN lang');
+      utterance.lang = 'hi-IN';
+      
+      // For Hindi, we need to ensure voices are loaded
+      const availableVoices = window.speechSynthesis.getVoices();
+      
+      if (availableVoices.length === 0) {
+        console.warn('⚠️ No voices loaded yet. Waiting for voices...');
+        // Force reload voices
+        const loadVoicesAndSpeak = () => {
+          const refreshedVoices = window.speechSynthesis.getVoices();
+          if (refreshedVoices.length > 0) {
+            selectAndSpeak(utterance, 'hi-IN', refreshedVoices);
+          }
+        };
+        window.speechSynthesis.onvoiceschanged = loadVoicesAndSpeak;
+        setTimeout(loadVoicesAndSpeak, 500);
+        return;
       }
+
+      selectAndSpeak(utterance, 'hi-IN', availableVoices);
     } else {
-      const englishVoice = voices.find(v => v.lang.startsWith('en'))
-        || voices.find(v => v.name.toLowerCase().includes('english'));
-      if (englishVoice) utterance.voice = englishVoice;
-      else utterance.lang = 'en-US';
+      utterance.lang = 'en-US';
+      const englishVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en')
+        || voices.find(v => v.lang.startsWith('en'));
+      
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+      
+      setupUtteranceHandlers(utterance, words);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const selectAndSpeak = (utterance, lang, availableVoices) => {
+    let selectedVoice = null;
+
+    if (lang === 'hi-IN') {
+      // Try different methods to find Hindi voice
+      selectedVoice = availableVoices.find(v => v.lang === 'hi-IN');
+      
+      if (!selectedVoice) {
+        selectedVoice = availableVoices.find(v => v.lang === 'hi');
+      }
+      
+      if (!selectedVoice) {
+        selectedVoice = availableVoices.find(v => v.lang.startsWith('hi'));
+      }
+      
+      if (!selectedVoice) {
+        selectedVoice = availableVoices.find(v => v.name.toLowerCase().includes('hindi'));
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log(`✅ Using Hindi voice: ${selectedVoice.name}`);
+      } else {
+        console.warn('⚠️ No Hindi voice found. Using system default for hi-IN.');
+        // Don't set voice, let browser use system default for hi-IN
+      }
     }
 
+    const words = utterance.text.split(' ');
+    setupUtteranceHandlers(utterance, words);
+    
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error('Error speaking:', err);
+    }
+  };
+
+  const setupUtteranceHandlers = (utterance, words) => {
     utterance.onboundary = (event) => {
       if (event.name === 'word') {
         const charIndex = event.charIndex;
@@ -191,8 +252,15 @@ ${weatherData.recommendations}
       setSpokenWords([]);
     };
 
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      console.error('Error code:', event.error);
+      if (isHindi) {
+        console.warn('⚠️ Hindi TTS issue. Try: Chrome Settings > Languages > Hindi (install offline)');
+      }
+      setCurrentWordIndex(-1);
+      setSpokenWords([]);
+    };
   };
 
   const stopReading = () => {
@@ -464,6 +532,14 @@ Weather data: ${JSON.stringify(forecast)}
                     </button>
                     <button onClick={speakRecommendations} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1">🔊 Listen</button>
                     <button onClick={stopReading} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1">✋ Stop</button>
+                    <button 
+                      title="Click to see how to install Hindi voices for your browser"
+                      onClick={() => {
+                        alert('📖 How to install Hindi voice in Chrome:\n1. Open Chrome Settings\n2. Go to Languages\n3. Find "Hindi" or "हिंदी"\n4. Click the three dots next to it\n5. Select "Install offline"\n\nFor other browsers, check language settings in your OS.\n\nTip: After installing, refresh this page and try again!');
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                      ❓ Hindi Voice Help
+                    </button>
                   </div>
                 </div>
 
